@@ -1,0 +1,48 @@
+version: '3.8'
+
+# Production overrides for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  postgres:
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+
+  backend:
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      GITHUB_API_TOKEN: ${GITHUB_API_TOKEN}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+      LOG_LEVEL: info
+    volumes: []
+    build:
+      args:
+        NODE_ENV: production
+
+  frontend:
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: ${FRONTEND_API_URL}
+      NEXT_PUBLIC_ENV: production
+    volumes: []
+
+  n8n:
+    restart: always
+    environment:
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+    volumes:
+      - n8n_prod_data:/home/node/.n8n
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  n8n_prod_data:
+    driver: local

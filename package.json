@@ -1,0 +1,41 @@
+{
+  "name": "opentrail",
+  "version": "0.1.0",
+  "description": "OSS contribution intelligence platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r --parallel run build",
+    "start": "pnpm -r --parallel run start",
+    "lint": "pnpm -r run lint",
+    "type-check": "pnpm -r run type-check",
+    "format": "prettier --write .",
+    "test": "pnpm -r run test",
+    "db:studio": "cd apps/backend && pnpm db:studio",
+    "db:seed": "cd apps/backend && pnpm db:seed",
+    "docker:up": "cd docker && docker-compose up -d",
+    "docker:down": "cd docker && docker-compose down",
+    "docker:logs": "cd docker && docker-compose logs -f",
+    "docker:build": "cd docker && docker-compose build",
+    "clean": "pnpm -r run clean && rm -rf node_modules",
+    "deps": "pnpm add -r -D @types/node typescript prettier eslint"
+  },
+  "devDependencies": {
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "keywords": [
+    "open-source",
+    "contribution",
+    "github",
+    "intelligence",
+    "ai"
+  ],
+  "author": "OpenTrail Contributors",
+  "license": "MIT"
+}

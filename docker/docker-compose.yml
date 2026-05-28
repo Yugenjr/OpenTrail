@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: opentrail-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: opentrail_password
+      POSTGRES_DB: opentrail_db
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - opentrail-network
+    restart: unless-stopped
+
+  # Backend API Server
+  backend:
+    build:
+      context: ../
+      dockerfile: ./docker/backend.dockerfile
+      args:
+        NODE_ENV: development
+    container_name: opentrail-backend
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://postgres:opentrail_password@postgres:5432/opentrail_db
+      JWT_SECRET: dev_secret_key_123456789_change_in_production
+      JWT_EXPIRATION: 7d
+      GITHUB_API_TOKEN: ${GITHUB_API_TOKEN:-dev_token}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dev_id}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dev_secret}
+      FRONTEND_URL: http://localhost:3000
+      N8N_URL: http://n8n:5678
+      N8N_API_KEY: ${N8N_API_KEY:-dev_key}
+      LOG_LEVEL: debug
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../apps/backend/src:/app/src
+      - ../apps/backend/prisma:/app/prisma
+      - /app/node_modules
+      - /app/dist
+    networks:
+      - opentrail-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ../
+      dockerfile: ./docker/frontend.dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_ENV: development
+    container_name: opentrail-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_BASE: /api
+      NEXT_PUBLIC_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ../apps/frontend/src:/app/src
+      - ../apps/frontend/public:/app/public
+      - /app/.next
+      - /app/node_modules
+    networks:
+      - opentrail-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # n8n Workflow Automation
+  n8n:
+    image: n8n/n8n:latest
+    container_name: opentrail-n8n
+    environment:
+      DB_TYPE: postgresql
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: opentrail_n8n
+      DB_POSTGRESDB_USER: postgres
+      DB_POSTGRESDB_PASSWORD: opentrail_password
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: admin
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-admin123}
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      NODE_ENV: development
+      WEBHOOK_URL: http://n8n:5678
+      N8N_EDITOR_BASE_URL: http://localhost:5678
+    ports:
+      - "5678:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ../workflows:/workflows
+    networks:
+      - opentrail-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  n8n_data:
+    driver: local
+
+networks:
+  opentrail-network:
+    driver: bridge
